@@ -1,0 +1,15 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: mock-bank-sbi-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/unified_banking_mock_sbi
+    username: unibank_admin
+    password: UniBank@Local123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
