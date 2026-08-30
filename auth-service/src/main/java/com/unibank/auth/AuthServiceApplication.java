@@ -1,4 +1,4 @@
-package com.unibank.auth_service;
+package com.unibank.auth;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
