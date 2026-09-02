@@ -1,0 +1,22 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: banking-core-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/unified_banking_core
+    username: unibank_admin
+    password: UniBank@Local123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+
+# Base URLs for mock bank servers. banking-core-service will call these
+# starting Day 7 when we build account linking. Defined now so the config
+# is in one place as we add more banks (HDFC, ICICI) on Day 15-16.
+mock-banks:
+  sbi:
+    base-url: http://localhost:8091
