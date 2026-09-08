@@ -1,5 +1,6 @@
 package com.unibank.bankingcoreservice.service;
 
+import com.unibank.bankingcoreservice.client.ConsentClient;
 import com.unibank.bankingcoreservice.client.MockBankClient;
 import com.unibank.bankingcoreservice.client.dto.*;
 import com.unibank.bankingcoreservice.dto.*;
@@ -21,6 +22,7 @@ public class AccountService {
     private final BankProviderRepository bankProviderRepository;
     private final LinkedBankAccountRepository linkedBankAccountRepository;
     private final MockBankClient mockBankClient;
+    private final ConsentClient consentClient;
 
     public List<BankResponse> listBanks() {
         return bankProviderRepository.findAll().stream()
@@ -45,9 +47,6 @@ public class AccountService {
             throw new ApiException("No accounts found at bank for customerRef: " + request.getCustomerRef(), HttpStatus.NOT_FOUND);
         }
 
-        // MVP: link the first account returned for this customerRef.
-        // Letting the user pick from multiple accounts is a frontend concern
-        // we'll add once the React UI exists.
         ExternalAccountDto external = externalAccounts.get(0);
         String externalAccountId = String.valueOf(external.getAccountId());
 
@@ -84,13 +83,12 @@ public class AccountService {
 
     public AccountBalanceResponse getBalance(Long id, Long userId) {
         LinkedBankAccount account = getOwnedAccountOrThrow(id, userId);
-        BankProvider bank = getBank(account.getBankProviderId());
+        enforceConsent(account.getId());
 
+        BankProvider bank = getBank(account.getBankProviderId());
         ExternalBalanceDto liveBalance = mockBankClient.getBalance(
                 bank.getApiBaseUrl(), bank.getBankCode(), account.getExternalAccountId());
 
-        // Refresh the local snapshot whenever we do a live read, so dashboard
-        // list views (which use the snapshot) don't go stale for too long.
         account.setBalanceSnapshot(liveBalance.getBalance());
         linkedBankAccountRepository.save(account);
 
@@ -103,6 +101,8 @@ public class AccountService {
 
     public List<AccountTransactionResponse> getTransactions(Long id, Long userId) {
         LinkedBankAccount account = getOwnedAccountOrThrow(id, userId);
+        enforceConsent(account.getId());
+
         BankProvider bank = getBank(account.getBankProviderId());
 
         return mockBankClient.getTransactions(
@@ -117,6 +117,22 @@ public class AccountService {
                         .status(tx.getStatus())
                         .build())
                 .toList();
+    }
+
+    // Central consent gate. Any read of live bank data (balance, transactions,
+    // and later payments/closures) must pass through here first.
+    private void enforceConsent(Long linkedAccountId) {
+        ConsentValidationDto validation = consentClient.validate(linkedAccountId);
+
+        if (!validation.isValid()) {
+            String reason = validation.getReason() != null ? validation.getReason() : "NOT_FOUND";
+            String message = switch (reason) {
+                case "EXPIRED" -> "Consent has expired for this account. Please renew consent.";
+                case "REVOKED", "NOT_FOUND" -> "No active consent found for this account. Please provide consent first.";
+                default -> "Consent validation failed: " + reason;
+            };
+            throw new ApiException(message, HttpStatus.FORBIDDEN);
+        }
     }
 
     private LinkedBankAccount getOwnedAccountOrThrow(Long id, Long userId) {
