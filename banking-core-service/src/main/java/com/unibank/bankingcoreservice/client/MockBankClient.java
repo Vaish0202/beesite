@@ -1,10 +1,10 @@
 package com.unibank.bankingcoreservice.client;
 
-
 import com.unibank.bankingcoreservice.client.dto.*;
 import com.unibank.bankingcoreservice.exception.ApiException;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -62,9 +62,22 @@ public class MockBankClient {
         }
     }
 
-    // Builds a path like /mock/sbi/accounts/... generically from the bank code,
-    // so this same client works for HDFC and ICICI once we add them on Day 15-16,
-    // as long as those mock services follow the same /mock/{code}/... convention.
+    public SimulatePaymentResponseDto simulatePayment(String baseUrl, String bankCode, SimulatePaymentRequestDto request) {
+        String url = baseUrl + buildPath(bankCode, "/payments/simulate");
+        try {
+            return restClient.post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(SimulatePaymentResponseDto.class);
+        } catch (RestClientResponseException e) {
+            throw new ApiException("Mock bank error: " + e.getStatusText(), HttpStatus.valueOf(e.getStatusCode().value()));
+        } catch (Exception e) {
+            throw new ApiException("Unable to reach bank server", HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
     private String buildPath(String bankCode, String suffix) {
         return "/mock/" + bankCode.toLowerCase() + suffix;
     }

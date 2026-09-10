@@ -24,3 +24,6 @@ mock-banks:
 internal-services:
   consent-service:
     base-url: http://localhost:8084
+
+  fraud-service:
+    base-url: http://localhost:8085
